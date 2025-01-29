@@ -1,0 +1,21 @@
+bhvSessionDIR = '/Volumes/LaCie/bhv/George00_rec29_04052021';
+bhvData = loadBehavioralData(bhvSessionDIR);
+
+trialNumbers = bhvData.trialinfo.TrialNumber;
+numSaccades = bhvData.trialinfo.saccN;
+leverResponse = bhvData.trialinfo.lever; % -1: Left, 1: right (for each trial)
+stimVal = bhvData.trialinfo.valbin_lin;  % value information for left and right pic shown as part of stimuli
+
+% For each trial, extract the value of chosen picture
+chosenValPerTrial = NaN(size(leverResponse));
+
+chosenValPerTrial(leverResponse == -1) = stimVal(leverResponse == -1, 1);  % For -1 (left picture), value in 1st column
+chosenValPerTrial(leverResponse == 1) = stimVal(leverResponse == 1, 2);    % For 1 (right picture), value in 2nd column
+
+% For all the leverResponses of zero, set the action performed to NaN
+actionPerformedPerTrial = leverResponse;
+actionPerformedPerTrial(actionPerformedPerTrial == 0) = NaN;
+
+% Set chosen value and action performed to NaN for trials for which number 
+% of saccades is greater than 1
+idx = (numSaccades > 1) & (?)

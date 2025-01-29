@@ -1,0 +1,36 @@
+function [retData] = GetSignificantTimeBinsFromPVal(pValueAllNeurons, timeBins)
+    warning("Make sure that p-value across time for all " + ...
+        "neurons is aligned to stim onset");
+
+    significantMask = false(size(pValueAllNeurons));  % Initialize the mask
+
+    for n = 1:size(pValueAllNeurons, 1)
+        sigBins = pValueAllNeurons(n, :) < 0.01;
+        
+        % Convolve with a window of length 4 to detect runs of 4 or more consecutive significant bins
+        convResult = conv(sigBins, ones(1, 4), 'same');
+        
+        % Identify indices where the convolution result >= 4 (indicating >=4 consecutive significant bins)
+        % Find the start and end of consecutive segments
+        runStart = find([0, diff(convResult >= 4)] == 1); % Start of run
+        runEnd = find([diff(convResult >= 4), 0] == -1); % End of run
+        
+        % Mark all time bins in the identified runs as significant
+        for k = 1:length(runStart)
+            significantMask(n, runStart(k):runEnd(k)) = true;
+        end
+    end
+
+%     significantMask = pValueAllNeurons < 0.01;  
+%     consecutiveCount = movsum(significantMask, 4, 2);  % Moving sum (along each row) with a window of 4
+%     mask1 = consecutiveCount >= 4;
+% 
+%     % 500 ms window after stim onset
+%     tIDX = (timeBins > 0) & (timeBins <= 500);
+%     mask2 = mask1 & tIDX;
+% 
+%     % Index of significant neuron
+%     idxSignificantNeuron = find(sum(mask2, 2) >= 1);
+
+    retData.indicesSignificantNeuron = idxSignificantNeuron;
+end
