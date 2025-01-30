@@ -1,8 +1,8 @@
 
 clear all
 
-bhvBaseDir = '/Volumes/LaCie/bhv/'; % Base directory
-recdataBaseDir = '/Volumes/LaCie/recdata/'; % Base directory
+bhvBaseDir = 'C:\Users\Ranjan\Desktop\Data\bhv'; % Base directory
+recdataBaseDir = 'C:\Users\Ranjan\Desktop\Data\recdata'; % Base directory
 folders = dir(fullfile(bhvBaseDir, 'George*')); % Get all folders starting with 'George'
 folders = folders([folders.isdir]); % Filter only directories (ignore files)
 
@@ -70,7 +70,7 @@ for i = 1:length(folders)
     dataToSave.ROFC.pValActionPerformed = regressionAnalysisDataROFC.pValActionPerformed;
     dataToSave.ROFC.timeBins = timeBinsROFC;
     
-    sessionPath = fullfile('/Users/avinashranjan/Documents/MATLAB/ElstonLab/OFC_Value/Data/', session);
+    sessionPath = fullfile('C:/Users/Ranjan/Documents/MATLAB/OFC_Value/Data', session);
     
     % Check if the directory exists
     if ~exist(sessionPath, 'dir')
@@ -87,7 +87,7 @@ pval_ValueROFC = [];
 timeBinsLOFC = [];
 timeBinsROFC = [];
 
-dataBaseDIR = '/Users/avinashranjan/Documents/MATLAB/ElstonLab/OFC_Value/Data';
+dataBaseDIR = "C:/Users/Ranjan/Documents/MATLAB/OFC_Value/Data";
 folders = dir(dataBaseDIR);
 folders = folders([folders.isdir]); % Filter only directories (ignore files)
 
@@ -106,7 +106,7 @@ for i = 1:length(folders)
     pval_ValueLOFC = [pval_ValueLOFC; pval_ValueLOFC_]; % Append rows from this session
     timeBinsLOFC = [timeBinsLOFC; regressionData.dataToSave.LOFC.timeBins];
 
-    pval_ValueROFC_ = regressionData.dataToSave.ROFC.pValTrialValue; % TODO: chqange
+    pval_ValueROFC_ = regressionData.dataToSave.ROFC.pValTrialValue; % TODO: chqan ge
     pval_ValueROFC = [pval_ValueROFC; pval_ValueROFC_]; % Append rows from this session
     timeBinsROFC = [timeBinsROFC; regressionData.dataToSave.ROFC.timeBins];
     
@@ -123,9 +123,10 @@ figure;
 tbins = mean(timeBinsLOFC, 1); 
 retData = GetSignificantTimeBinsFromPVal(pval_ValueLOFC, tbins);
 significantMaskLOFC = retData.significantMask;
+fristSigBinPostStim1 = GetFirstSigPostStim(significantMaskLOFC, tbins);
 
-significantNeuronsProp = sum(significantMaskLOFC, 1) / size(pval_ValueLOFC, 1);
-plot(tbins, significantNeuronsProp, 'LineWidth', 2, 'DisplayName', 'LOFC');
+significantNeuronsProp1 = sum(significantMaskLOFC, 1) / size(pval_ValueLOFC, 1);
+plot(tbins, significantNeuronsProp1, 'LineWidth', 2, 'DisplayName', 'LOFC');
 
 hold on;
 
@@ -133,9 +134,10 @@ hold on;
 tbins = mean(timeBinsROFC, 1); 
 retData = GetSignificantTimeBinsFromPVal(pval_ValueROFC, tbins);
 significantMaskROFC = retData.significantMask;
+fristSigBinPostStim2 = GetFirstSigPostStim(significantMaskROFC, tbins);
 
-significantNeuronsProp = sum(significantMaskROFC, 1) / size(pval_ValueROFC, 1);
-plot(tbins, significantNeuronsProp, 'LineWidth', 2, 'DisplayName', 'ROFC');
+significantNeuronsProp2 = sum(significantMaskROFC, 1) / size(pval_ValueROFC, 1);
+plot(tbins, significantNeuronsProp2, 'LineWidth', 2, 'DisplayName', 'ROFC');
 
 % Add legend
 legend('Location', 'best');
@@ -144,5 +146,17 @@ legend('Location', 'best');
 xlabel('Time - from stim onset (ms)');
 ylabel('Proportion of significant neurons');
 title('Proportion of Significant Value Neurons');
+
+% Perform Chi-squared test
+chiTestData.prop1 = significantNeuronsProp1;
+chiTestData.prop2 = significantNeuronsProp2;
+chiTestData.totCount1 = size(pval_ValueLOFC, 1);
+chiTestData.totCount2 = size(pval_ValueROFC, 1);
+
+retData = PerformChiSquaredTest(chiTestData);
+
+% Overlay significance markers (e.g., small bars at the bottom)
+significantBins = retData.pvals < 0.05;
+bar(tbins, significantBins * 0.01, 'FaceColor', 'r', 'EdgeColor', 'none', 'FaceAlpha', 0.5, 'HandleVisibility', 'off');
 
 hold off;

@@ -1,0 +1,5 @@
+function [retData] = GetFirstSigPostStim(sigMaskFromPValues, timeBins)
+    % Find the time bin for each neuron when it first becomes significant
+    % after the stim onset
+    fltIDx = (timeBins > 0)
+end
