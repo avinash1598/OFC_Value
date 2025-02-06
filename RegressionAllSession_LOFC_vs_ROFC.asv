@@ -123,6 +123,7 @@ figure;
 tbins = mean(timeBinsLOFC, 1); 
 retData = GetSignificantTimeBinsFromPVal(pval_ValueLOFC, tbins);
 significantMaskLOFC = retData.significantMask;
+fristSigBinPostStim1 = GetFirstSigPostStim(significantMaskLOFC, tbins);
 
 significantNeuronsProp1 = sum(significantMaskLOFC, 1) / size(pval_ValueLOFC, 1);
 plot(tbins, significantNeuronsProp1, 'LineWidth', 2, 'DisplayName', 'LOFC');
@@ -133,6 +134,7 @@ hold on;
 tbins = mean(timeBinsROFC, 1); 
 retData = GetSignificantTimeBinsFromPVal(pval_ValueROFC, tbins);
 significantMaskROFC = retData.significantMask;
+fristSigBinPostStim2 = GetFirstSigPostStim(significantMaskROFC, tbins);
 
 significantNeuronsProp2 = sum(significantMaskROFC, 1) / size(pval_ValueROFC, 1);
 plot(tbins, significantNeuronsProp2, 'LineWidth', 2, 'DisplayName', 'ROFC');
@@ -151,10 +153,15 @@ chiTestData.prop2 = significantNeuronsProp2;
 chiTestData.totCount1 = size(pval_ValueLOFC, 1);
 chiTestData.totCount2 = size(pval_ValueROFC, 1);
 
-pvals = PerformChiSquaredTest(chiTestData);
+retData = PerformChiSquaredTest(chiTestData);
 
 % Overlay significance markers (e.g., small bars at the bottom)
-significantBins = pvals < 0.05;
-bar(tbins, significantBins * 0.05, 'r', 'EdgeColor', 'none', 'FaceAlpha', 0.5);
+significantBins = retData.pvals < 0.05;
+bar(tbins, significantBins * 0.01, 'FaceColor', 'r', 'EdgeColor', 'none', 'FaceAlpha', 0.5, 'HandleVisibility', 'off');
 
 hold off;
+
+
+
+%%
+% Distribution 

@@ -160,3 +160,43 @@ significantBins = retData.pvals < 0.05;
 bar(tbins, significantBins * 0.01, 'FaceColor', 'r', 'EdgeColor', 'none', 'FaceAlpha', 0.5, 'HandleVisibility', 'off');
 
 hold off;
+
+
+
+%%
+% Distribution of time bins when each neuron first became significant after
+% stim onset
+
+figure;
+
+% Plot 1: All significant neurons
+% If p-value is significant for any neuron for 4 consecutive timebin within
+% 500 ms of stim onset then the neuron is significant
+tbins = mean(timeBinsLOFC, 1); 
+retData = GetSignificantTimeBinsFromPVal(pval_ValueLOFC, tbins);
+significantMaskLOFC = retData.significantMask;
+fristSigBinPostStim1 = GetFirstSigPostStim(significantMaskLOFC, tbins);
+
+h = histogram(fristSigBinPostStim1, 'NumBins', 15);  % Create the histogram
+h.DisplayName = 'LOFC';  % Assign the DisplayName property
+
+hold on;
+
+% Plot 1: All significant neurons
+tbins = mean(timeBinsROFC, 1); 
+retData = GetSignificantTimeBinsFromPVal(pval_ValueROFC, tbins);
+significantMaskROFC = retData.significantMask;
+fristSigBinPostStim2 = GetFirstSigPostStim(significantMaskROFC, tbins);
+
+h = histogram(fristSigBinPostStim2, 'NumBins', 15);  % Create the histogram
+h.DisplayName = 'ROFC';  % Assign the DisplayName property
+
+% Add legend
+legend('Location', 'best');
+
+% Axis labels and title
+xlabel('Frist significant post stim (ms)');
+ylabel('Count');
+title('Distribution of first significant timebin post stim onset (all neurons)');
+
+hold off;

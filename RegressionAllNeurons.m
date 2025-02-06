@@ -1,9 +1,9 @@
 % Neurons aligned to onset of picture and from left OFC
 % Firing rates data binned in sliding window of 100 ms and slide of 25 ms
-sessionDIR = '/Volumes/LaCie/recdata/George00_rec29_04052021';
+sessionDIR = 'C:\Users\Ranjan\Desktop\Data\recdata\George00_rec29_04052021';
 nrnData = loadNeuronsData(sessionDIR, 'LOFC', 'choiceOnset');
 
-bhvSessionDIR = '/Volumes/LaCie/bhv/George00_rec29_04052021';
+bhvSessionDIR = 'C:\Users\Ranjan\Desktop\Data\bhv\George00_rec29_04052021';
 bhvData = loadBehavioralData(bhvSessionDIR);
 
 trialNumbers = bhvData.trialinfo.TrialNumber;
@@ -71,6 +71,7 @@ for nrnIDX=1:size(zScoredSpkData, 3)
     pValOfAllNeurons(nrnIDX,:) = pValOfThisF_Neuron;
 end
 
+disp("done")
 
 %%
 % figure()

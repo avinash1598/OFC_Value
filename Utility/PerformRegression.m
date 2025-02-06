@@ -14,6 +14,11 @@ function [retData] = PerformRegression(trialFiringRates, trialChosenValues, tria
     pValTrialValue = zeros(size(trialFiringRates, 3), size(trialFiringRates, 2));
     pValActionPerformed = zeros(size(trialFiringRates, 3), size(trialFiringRates, 2));
     
+    % Estimated regression coefficient (beta)
+    betaCoeffTrialNumbers = zeros(size(trialFiringRates, 3), size(trialFiringRates, 2));
+    betaCoeffTrialValue = zeros(size(trialFiringRates, 3), size(trialFiringRates, 2));
+    betaCoeffActionPerformed = zeros(size(trialFiringRates, 3), size(trialFiringRates, 2));
+    
     % Regression analysis for all the neurons
     for nrnIDX=1:size(trialFiringRates, 3)
         singleNrnSpkData = trialFiringRates(:,:,nrnIDX);
@@ -62,6 +67,10 @@ function [retData] = PerformRegression(trialFiringRates, trialChosenValues, tria
             % pValTrialNumbers(nrnIDX, t) = mdl.Coefficients.pValue(2);
             % pValTrialValue(nrnIDX, t) = mdl.Coefficients.pValue(3);
             % pValActionPerformed(nrnIDX, t) = mdl.Coefficients.pValue(4);
+            % mdl.Coefficients.Estimate(1) => Intercept
+            % mdl.Coefficients.Estimate(2) => Coefficeint for factor 1
+            % mdl.Coefficients.Estimate(3) => Coefficeint for factor 2
+            % mdl.Coefficients.Estimate(4) => Coefficeint for factor 3
             % Store results
             
             pValOverall(nrnIDX, t) = pValue;
@@ -75,6 +84,17 @@ function [retData] = PerformRegression(trialFiringRates, trialChosenValues, tria
                 pValActionPerformed(nrnIDX, t) = mdl.Coefficients.pValue(strcmp(mdl.Coefficients.Properties.RowNames, 'ActionPerformed'));
             end
             
+            % Estimated coefficients for regression factor
+            if any(strcmp(validPredictors, 'TrialNumbers'))
+                betaCoeffTrialNumbers(nrnIDX, t) = mdl.Coefficients.Estimate(strcmp(mdl.Coefficients.Properties.RowNames, 'TrialNumbers'));
+            end
+            if any(strcmp(validPredictors, 'TrialValue'))
+                betaCoeffTrialValue(nrnIDX, t) = mdl.Coefficients.Estimate(strcmp(mdl.Coefficients.Properties.RowNames, 'TrialValue'));
+            end
+            if any(strcmp(validPredictors, 'ActionPerformed'))
+                betaCoeffActionPerformed(nrnIDX, t) = mdl.Coefficients.Estimate(strcmp(mdl.Coefficients.Properties.RowNames, 'ActionPerformed'));
+            end
+            
         end
     end
 
@@ -83,4 +103,8 @@ function [retData] = PerformRegression(trialFiringRates, trialChosenValues, tria
     retData.pValTrialNumbers = pValTrialNumbers;
     retData.pValTrialValue = pValTrialValue;
     retData.pValActionPerformed = pValActionPerformed;
+
+    retData.betaCoeffTrialNumbers = betaCoeffTrialNumbers;
+    retData.betaCoeffTrialValue = betaCoeffTrialValue;
+    retData.betaCoeffActionPerformed = betaCoeffActionPerformed;
 end

@@ -58,10 +58,37 @@ function [retData] = PerformRegression(trialFiringRates, trialChosenValues, tria
             pValue = anovaTable.pValue(2);  % Overall p-value
            
             % TODO: record p-values for individual variable
-            pValOverall(nrnIDX, t) = pValue;
+            % pValOverall(nrnIDX, t) = pValue;
             % pValTrialNumbers(nrnIDX, t) = mdl.Coefficients.pValue(2);
             % pValTrialValue(nrnIDX, t) = mdl.Coefficients.pValue(3);
             % pValActionPerformed(nrnIDX, t) = mdl.Coefficients.pValue(4);
+            % mdl.Coefficients.Estimate(1) => Intercept
+            % mdl.Coefficients.Estimate(2) => Coefficeint for factor 1
+            % mdl.Coefficients.Estimate(3) => Coefficeint for factor 2
+            % mdl.Coefficients.Estimate(4) => Coefficeint for factor 3
+            % Store results
+            
+            pValOverall(nrnIDX, t) = pValue;
+            if any(strcmp(validPredictors, 'TrialNumbers'))
+                pValTrialNumbers(nrnIDX, t) = mdl.Coefficients.pValue(strcmp(mdl.Coefficients.Properties.RowNames, 'TrialNumbers'));
+            end
+            if any(strcmp(validPredictors, 'TrialValue'))
+                pValTrialValue(nrnIDX, t) = mdl.Coefficients.pValue(strcmp(mdl.Coefficients.Properties.RowNames, 'TrialValue'));
+            end
+            if any(strcmp(validPredictors, 'ActionPerformed'))
+                pValActionPerformed(nrnIDX, t) = mdl.Coefficients.pValue(strcmp(mdl.Coefficients.Properties.RowNames, 'ActionPerformed'));
+            end
+            
+            % 
+            if any(strcmp(validPredictors, 'TrialNumbers'))
+                pValTrialNumbers(nrnIDX, t) = mdl.Coefficients.pValue(strcmp(mdl.Coefficients.Properties.RowNames, 'TrialNumbers'));
+            end
+            if any(strcmp(validPredictors, 'TrialValue'))
+                pValTrialValue(nrnIDX, t) = mdl.Coefficients.pValue(strcmp(mdl.Coefficients.Properties.RowNames, 'TrialValue'));
+            end
+            if any(strcmp(validPredictors, 'ActionPerformed'))
+                pValActionPerformed(nrnIDX, t) = mdl.Coefficients.pValue(strcmp(mdl.Coefficients.Properties.RowNames, 'ActionPerformed'));
+            end
             
         end
     end
