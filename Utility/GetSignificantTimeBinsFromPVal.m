@@ -6,6 +6,7 @@ function [retData] = GetSignificantTimeBinsFromPVal(pValueAllNeurons, timeBins)
     
     for n = 1:size(pValueAllNeurons, 1)
         sigBins = pValueAllNeurons(n, :) < 0.01;
+%         sigBins = pValueAllNeurons(n, :) < 0.05;
         count = 0;
     
         for t = 1:length(sigBins)

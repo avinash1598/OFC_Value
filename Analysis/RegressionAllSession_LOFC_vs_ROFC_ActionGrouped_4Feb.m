@@ -1,8 +1,8 @@
 
 clear all
 
-bhvBaseDir = 'C:\Users\Ranjan\Desktop\Data\bhv'; % Base directory
-recdataBaseDir = 'C:\Users\Ranjan\Desktop\Data\recdata'; % Base directory
+bhvBaseDir = '/Volumes/LaCie/bhv'; % Base directory
+recdataBaseDir = '/Volumes/LaCie/recdata'; % Base directory
 folders = dir(fullfile(bhvBaseDir, 'George*')); % Get all folders starting with 'George'
 folders = folders([folders.isdir]); % Filter only directories (ignore files)
 
@@ -92,7 +92,7 @@ for i = 1:length(folders)
         
     end
     
-    sessionPath = fullfile('C:/Users/Ranjan/Documents/MATLAB/OFC_Value/Data', session);
+    sessionPath = fullfile('/Users/avinashranjan/Documents/MATLAB/ElstonLab/OFC_Value/Data', session);
     
     % Check if the directory exists
     if ~exist(sessionPath, 'dir')
@@ -103,21 +103,38 @@ for i = 1:length(folders)
     save(sessionPath, 'dataToSave')
 end
 
-print("done")
+disp("done")
 
 %%
-pval_Value.left.LOFC = [];
-pval_Value.left.ROFC = [];
-pval_Value.right.LOFC = [];
-pval_Value.right.ROFC = [];
-
-timeBins = [];
-
-dataBaseDIR = "C:/Users/Ranjan/Documents/MATLAB/OFC_Value/Data";
+dataBaseDIR = "/Users/avinashranjan/Documents/MATLAB/ElstonLab/OFC_Value/Data";
 folders = dir(dataBaseDIR);
 folders = folders([folders.isdir]); % Filter only directories (ignore files)
 
-for i = 1:length(folders)
+% Initialize the list
+actionDirs = {'left', 'right'};   % Cell array of character vectors
+ofcSides = {'LOFC', 'ROFC'};      % Cell array of character vectors
+brainSides = {'IPSI', 'CONTRA'};
+    
+for aIdx = 1:length(actionDirs)
+    for bIdx = 1:length(ofcSides)
+        actionDir = actionDirs{aIdx};   % Extract string from cell
+        ofcSide = ofcSides{bIdx};       % Extract string from cell
+        
+        % Determine IPSI or CONTRA based on the mapping rule
+        if (strcmp(actionDir, 'left') && strcmp(ofcSide, 'LOFC')) || ...
+           (strcmp(actionDir, 'right') && strcmp(ofcSide, 'ROFC'))
+            brainSide = 'IPSI';
+        else
+            brainSide = 'CONTRA';
+        end
+
+        % TODO: create an array for factor as well
+        cumDataAllSession.pval.Value.(ofcSide).(brainSide) = [];
+        cumDataAllSession.betaCoeff.Value.(ofcSide).(brainSide) = [];
+    end
+end
+
+for i = 1:length(folders) % Iterate through each session file
     if startsWith(folders(i).name, '.')
         continue;  % Skip the current iteration if file is a '._' file
     end
@@ -125,259 +142,203 @@ for i = 1:length(folders)
     session = folders(i).name;
     sessionFilePath = fullfile(dataBaseDIR, session, "pvalue_LOFC_vs_ROFC_ActionGrouped.mat");
 
-    % Check if all the time bins are same
+    % TODO: Check if all the time bins are same
     regressionData = load(sessionFilePath); 
-    
-    % Left
-    pval_ = regressionData.dataToSave.left.LOFC.pValTrialValue; % TODO: change
-    pval_Value.left.LOFC = [pval_Value.left.LOFC; pval_]; % Append rows from this session
 
-    pval_ = regressionData.dataToSave.left.ROFC.pValTrialValue; % TODO: change
-    pval_Value.left.ROFC = [pval_Value.left.ROFC; pval_]; % Append rows from this session
+    for aIdx = 1:length(actionDirs)
+        for bIdx = 1:length(ofcSides)
+            actionDir = actionDirs{aIdx};   % Extract string from cell
+            ofcSide = ofcSides{bIdx};       % Extract string from cell
+            
+            % Determine IPSI or CONTRA based on the mapping rule
+            if (strcmp(actionDir, 'left') && strcmp(ofcSide, 'LOFC')) || ...
+               (strcmp(actionDir, 'right') && strcmp(ofcSide, 'ROFC'))
+                brainSide = 'IPSI';
+            else
+                brainSide = 'CONTRA';
+            end
 
-    % Right
-    pval_ = regressionData.dataToSave.right.LOFC.pValTrialValue; % TODO: change
-    pval_Value.right.LOFC = [pval_Value.right.LOFC; pval_]; % Append rows from this session
+            disp([actionDir, ' ', ofcSide, ' ', brainSide])
 
-    pval_ = regressionData.dataToSave.right.ROFC.pValTrialValue; % TODO: change
-    pval_Value.right.ROFC = [pval_Value.right.ROFC; pval_]; % Append rows from this session
+            % Value information
+            pval_ = regressionData.dataToSave.(actionDir).(ofcSide).pValTrialValue; % TODO: change
+            cumDataAllSession.pval.Value.(ofcSide).(brainSide) = [cumDataAllSession.pval.Value.(ofcSide).(brainSide); pval_]; % Append rows from this session
 
-    % Assuming all regions have same timebins
-    timeBins = [timeBins; regressionData.dataToSave.left.LOFC.timeBins];
-    
+            % Beta coefficient
+            betaCoeff_ = regressionData.dataToSave.(actionDir).(ofcSide).betaCoeffTrialValue; % TODO: change
+            cumDataAllSession.betaCoeff.Value.(ofcSide).(brainSide) = [cumDataAllSession.betaCoeff.Value.(ofcSide).(brainSide); betaCoeff_]; % Append rows from this session
+
+        end
+    end
+
+    % Assuming all the session have same bins - safe assumption
+    cumDataAllSession.timeBins = regressionData.dataToSave.left.LOFC.timeBins;
 end
 
-% Classify a neurons as value neuron if p-value 
-% is significant for 4 consecutive windows 500 ms after stim onset
+% Get index of neuron which are significant only within 0 to 500 ms after
+% stim onset
 
-figure;
+valueDynamicsDataStruct = [];
 
-subplot(2, 2, 1)
+% Store value dynamics in a structure first
+for idx1=1:length(ofcSides) % 
+    for idx2=1:length(brainSides)
+        
+        tbins = cumDataAllSession.timeBins;
+        pvalData = cumDataAllSession.pval.Value.(ofcSides{idx1}).(brainSides{idx2});
+        betaCoeffData = cumDataAllSession.betaCoeff.Value.(ofcSides{idx1}).(brainSides{idx2});
+        
+        % Get significant time bins
+        retData1 = GetSignificantTimeBinsFromPVal(pvalData, tbins); 
+        significantMask = retData1.significantMask;
+        
+        % Get significant neuron IDx (significant timebin within 0 - 500 ms interval)
+        retData2 = GetSignificantNeuronIDx(significantMask, tbins);
+        significantNrnIDx = retData2.sigNrnIDx;
+        
+        % Get first significant timebin post stim onset
+        % And get this only for significant neuron
+        fristSigBinPostStim = GetFirstSigPostStim(significantMask(significantNrnIDx, :), tbins);
+        
+        % value dynamics
+        % Get significant proportion at each time bin for significant neuron only
+        significantNeuronsProp = sum(significantMask(significantNrnIDx, :), 1) / size(pvalData, 1);
+        % significantNeuronsProp = sum(significantMask, 1) / size(data, 1);
 
-% Plot 1: All significant neurons
-% If p-value is significant for any neuron for 4 consecutive timebin within
-% 500 ms of stim onset then the neuron is significant
-tbins = mean(timeBins, 1); 
-retData = GetSignificantTimeBinsFromPVal(pval_Value.left.LOFC, tbins);
-significantMaskLOFC = retData.significantMask;
+        % beta dynamics
+        betaDynamics = mean(abs(betaCoeffData(significantNrnIDx, :)), 1);
 
-significantNeuronsProp1 = sum(significantMaskLOFC, 1) / size(pval_Value.left.LOFC, 1);
-plot(tbins, significantNeuronsProp1, 'LineWidth', 2, 'DisplayName', 'LOFC');
+        % Mean beta value (0-500 ms) of all neurons (not just significant)
+        tIDx = (tbins > 0) & (tbins <= 500);
+        meanBeta = mean(betaCoeffData(:,tIDx), 2);
 
-hold on;
+        valueDynamicsDataStruct.significantNeuronsProp.Value.(ofcSides{idx1}).(brainSides{idx2}) = significantNeuronsProp;
+        valueDynamicsDataStruct.betaDynamics.Value.(ofcSides{idx1}).(brainSides{idx2}) = betaDynamics;
+        valueDynamicsDataStruct.fristSigBinPostStim.Value.(ofcSides{idx1}).(brainSides{idx2}) = fristSigBinPostStim;
+        valueDynamicsDataStruct.meanBeta.Value.(ofcSides{idx1}).(brainSides{idx2}) = meanBeta;
+        valueDynamicsDataStruct.significantNrnMask.Value.(ofcSides{idx1}).(brainSides{idx2}) = significantNrnIDx;
+        
+    end
 
-% Plot 1: All significant neurons
-tbins = mean(timeBins, 1); 
-retData = GetSignificantTimeBinsFromPVal(pval_Value.left.ROFC, tbins);
-significantMaskROFC = retData.significantMask;
+end
 
-significantNeuronsProp2 = sum(significantMaskROFC, 1) / size(pval_Value.left.ROFC, 1);
-plot(tbins, significantNeuronsProp2, 'LineWidth', 2, 'DisplayName', 'ROFC');
-
-% Add legend
-legend('Location', 'best');
-
-% Axis labels and title
-xlabel('Time - from stim onset (ms)');
-ylabel('Proportion of significant neurons');
-title('Left action');
-
-% Perform Chi-squared test
-chiTestData.prop1 = significantNeuronsProp1;
-chiTestData.prop2 = significantNeuronsProp2;
-chiTestData.totCount1 = size(pval_Value.left.LOFC, 1);
-chiTestData.totCount2 = size(pval_Value.left.ROFC, 1);
-
-retData = PerformChiSquaredTest(chiTestData);
-
-% Overlay significance markers (e.g., small bars at the bottom)
-significantBins = retData.pvals < 0.05;
-bar(tbins, significantBins * 0.01, 'FaceColor', 'r', 'EdgeColor', 'none', 'FaceAlpha', 0.5, 'HandleVisibility', 'off');
-
-hold off;
-
-
-subplot(2, 2, 2)
-
-% Plot 1: All significant neurons
-% If p-value is significant for any neuron for 4 consecutive timebin within
-% 500 ms of stim onset then the neuron is significant
-tbins = mean(timeBins, 1); 
-retData = GetSignificantTimeBinsFromPVal(pval_Value.right.LOFC, tbins);
-significantMaskLOFC = retData.significantMask;
-
-significantNeuronsProp1 = sum(significantMaskLOFC, 1) / size(pval_Value.right.LOFC, 1);
-plot(tbins, significantNeuronsProp1, 'LineWidth', 2, 'DisplayName', 'LOFC');
-
-hold on;
-
-% Plot 1: All significant neurons
-tbins = mean(timeBins, 1); 
-retData = GetSignificantTimeBinsFromPVal(pval_Value.right.ROFC, tbins);
-significantMaskROFC = retData.significantMask;
-
-significantNeuronsProp2 = sum(significantMaskROFC, 1) / size(pval_Value.right.ROFC, 1);
-plot(tbins, significantNeuronsProp2, 'LineWidth', 2, 'DisplayName', 'ROFC');
-
-% Add legend
-legend('Location', 'best');
-
-% Axis labels and title
-xlabel('Time - from stim onset (ms)');
-ylabel('Proportion of significant neurons');
-title('Right action');
-
-% Perform Chi-squared test
-chiTestData.prop1 = significantNeuronsProp1;
-chiTestData.prop2 = significantNeuronsProp2;
-chiTestData.totCount1 = size(pval_Value.right.LOFC, 1);
-chiTestData.totCount2 = size(pval_Value.right.ROFC, 1);
-
-retData = PerformChiSquaredTest(chiTestData);
-
-% Overlay significance markers (e.g., small bars at the bottom)
-significantBins = retData.pvals < 0.05;
-bar(tbins, significantBins * 0.01, 'FaceColor', 'r', 'EdgeColor', 'none', 'FaceAlpha', 0.5, 'HandleVisibility', 'off');
-
-hold off;
+% Perform and store Chi-squared test
+for idx1=1:length(ofcSides)
+    % Chi-squared test for significantNeuronsProp
+    chiTestData.prop1 = valueDynamicsDataStruct.significantNeuronsProp.Value.LOFC.IPSI;
+    chiTestData.prop2 = valueDynamicsDataStruct.significantNeuronsProp.Value.LOFC.CONTRA;
+    chiTestData.totCount1 = size(cumDataAllSession.pval.Value.(ofcSides{idx1}).IPSI, 1);
+    chiTestData.totCount2 = size(cumDataAllSession.pval.Value.(ofcSides{idx1}).CONTRA, 1);
+    
+    retData = PerformChiSquaredTest(chiTestData);
+    
+    valueDynamicsDataStruct.significantNeuronsProp.Value.(ofcSides{idx1}).ChiTestResult = retData.pvals;
+end
 
 
-% Another way of plotting the same thing
-subplot(2, 2, 3)
+figure
+hold on
 
-% Plot 1: All significant neurons
-% If p-value is significant for any neuron for 4 consecutive timebin within
-% 500 ms of stim onset then the neuron is significant
-tbins = mean(timeBins, 1); 
-retData = GetSignificantTimeBinsFromPVal(pval_Value.left.LOFC, tbins);
-significantMask = retData.significantMask;
+% plotType = ['pval', 'betaCoeff'];
+% factor = ['Value', 'Action'];
+% ofcSides = {'LOFC', 'ROFC'};
+% brainSides = {'CONTRA', 'IPSI'};
 
-significantNeuronsProp1 = sum(significantMask, 1) / size(pval_Value.left.LOFC, 1);
-plot(tbins, significantNeuronsProp1, 'LineWidth', 2, 'DisplayName', 'Left');
+for idx1=1:length(ofcSides) % 
+    for idx2=1:length(brainSides)
+        
+        tbins = cumDataAllSession.timeBins;
+        significantNeuronsProp = valueDynamicsDataStruct.significantNeuronsProp.Value.(ofcSides{idx1}).(brainSides{idx2});
+        betaDynamics = valueDynamicsDataStruct.betaDynamics.Value.(ofcSides{idx1}).(brainSides{idx2});
+        fristSigBinPostStim = valueDynamicsDataStruct.fristSigBinPostStim.Value.(ofcSides{idx1}).(brainSides{idx2});
+        
+        % Plot value dynamics
+        subplot(3, 2, idx1)
+        hold on
+        plot(tbins, significantNeuronsProp, 'LineWidth', 2, 'DisplayName', brainSides{idx2});
 
-hold on;
+        title(ofcSides{idx1})
+        legend('Location', 'best');
+        xlabel('Time - from stim onset (ms)');
+        ylabel('Proportion of significant value neurons');
+        
+        % Plot beta dynamics
+        
+        subplot(3, 2, 2 + idx1)
+        hold on
+        plot(tbins, betaDynamics, 'LineWidth', 2, 'DisplayName', brainSides{idx2});
+        
+        title(ofcSides{idx1})
+        legend('Location', 'best');
+        xlabel('Time - from stim onset (ms)');
+        ylabel('Mean value regression coeff');
 
-% Plot 1: All significant neurons
-tbins = mean(timeBins, 1); 
-retData = GetSignificantTimeBinsFromPVal(pval_Value.right.LOFC, tbins);
-significantMask = retData.significantMask;
+        % Histogram of first significant time bin post stim onset
+        subplot(3, 2, 4 + idx1)
+        hold on
+        h = histogram(fristSigBinPostStim, 'NumBins', 17);  % Create the histogram
+        h.DisplayName = brainSides{idx2};  % Assign the DisplayName property
 
-significantNeuronsProp2 = sum(significantMask, 1) / size(pval_Value.right.LOFC, 1);
-plot(tbins, significantNeuronsProp2, 'LineWidth', 2, 'DisplayName', 'Right');
+        title(ofcSides{idx1})
+        legend('Location', 'best');
+        xlabel('Frist significant timebin post stim-onset (ms)');
+        ylabel('Count');
+    end
 
-% Add legend
-legend('Location', 'best');
+    % Overlay significance markers (e.g., small bars at the bottom)
+    pvals = valueDynamicsDataStruct.significantNeuronsProp.Value.(ofcSides{idx1}).ChiTestResult;
+    significantBins = pvals < 0.05;
 
-% Axis labels and title
-xlabel('Time - from stim onset (ms)');
-ylabel('Proportion of significant neurons');
-title('LOFC');
+    subplot(3, 2, idx1)
+    bar(tbins, significantBins * 0.01, 'FaceColor', 'r', 'EdgeColor', 'none', 'FaceAlpha', 0.5, 'HandleVisibility', 'off');
 
-% Perform Chi-squared test
-chiTestData.prop1 = significantNeuronsProp1;
-chiTestData.prop2 = significantNeuronsProp2;
-chiTestData.totCount1 = size(pval_Value.left.LOFC, 1);
-chiTestData.totCount2 = size(pval_Value.right.LOFC, 1);
+    % ttest result on first sig bin post stim-onset
+    d1 = valueDynamicsDataStruct.fristSigBinPostStim.Value.(ofcSides{idx1}).IPSI;
+    d2 = valueDynamicsDataStruct.fristSigBinPostStim.Value.(ofcSides{idx1}).CONTRA;
+    [h, p, ci, stats] =  ttest2(d1, d2);
+    disp(p)
+end
 
-retData = PerformChiSquaredTest(chiTestData);
+hold off
 
-% Overlay significance markers (e.g., small bars at the bottom)
-significantBins = retData.pvals < 0.05;
-bar(tbins, significantBins * 0.01, 'FaceColor', 'r', 'EdgeColor', 'none', 'FaceAlpha', 0.5, 'HandleVisibility', 'off');
-
-hold off;
-
-
-subplot(2, 2, 4)
-
-% Plot 1: All significant neurons
-% If p-value is significant for any neuron for 4 consecutive timebin within
-% 500 ms of stim onset then the neuron is significant
-tbins = mean(timeBins, 1); 
-retData = GetSignificantTimeBinsFromPVal(pval_Value.left.ROFC, tbins);
-significantMask = retData.significantMask;
-
-significantNeuronsProp1 = sum(significantMask, 1) / size(pval_Value.left.ROFC, 1);
-plot(tbins, significantNeuronsProp1, 'LineWidth', 2, 'DisplayName', 'Left');
-
-hold on;
-
-% Plot 1: All significant neurons
-tbins = mean(timeBins, 1); 
-retData = GetSignificantTimeBinsFromPVal(pval_Value.right.ROFC, tbins);
-significantMask = retData.significantMask;
-
-significantNeuronsProp2 = sum(significantMask, 1) / size(pval_Value.right.ROFC, 1);
-plot(tbins, significantNeuronsProp2, 'LineWidth', 2, 'DisplayName', 'Right');
-
-% Add legend
-legend('Location', 'best');
-
-% Axis labels and title
-xlabel('Time - from stim onset (ms)');
-ylabel('Proportion of significant neurons');
-title('ROFC');
-
-% Perform Chi-squared test
-chiTestData.prop1 = significantNeuronsProp1;
-chiTestData.prop2 = significantNeuronsProp2;
-chiTestData.totCount1 = size(pval_Value.left.ROFC, 1);
-chiTestData.totCount2 = size(pval_Value.right.ROFC, 1);
-
-retData = PerformChiSquaredTest(chiTestData);
-
-% Overlay significance markers (e.g., small bars at the bottom)
-significantBins = retData.pvals < 0.05;
-bar(tbins, significantBins * 0.01, 'FaceColor', 'r', 'EdgeColor', 'none', 'FaceAlpha', 0.5, 'HandleVisibility', 'off');
-
-hold off;
 
 %%
-% Ipsilateral and contralateral (Isn't this same as left and right action)
-figure;
+% P-values IPSI vs CONTRA
+figure
 
-% Plot 1: All significant neurons
-% If p-value is significant for any neuron for 4 consecutive timebin within
-% 500 ms of stim onset then the neuron is significant
-tbins = mean(timeBins, 1); 
-retData = GetSignificantTimeBinsFromPVal(pval_Value.left.LOFC, tbins);
-significantMask = retData.significantMask;
-retData2 = GetSignificantTimeBinsFromPVal(pval_Value.right.ROFC, tbins);
-significantMask2 = retData2.significantMask;
+for idx1=1:length(ofcSides) % 
+        
+    tbins = cumDataAllSession.timeBins;
+    meanBetaIPSI = valueDynamicsDataStruct.meanBeta.Value.(ofcSides{idx1}).IPSI;
+    meanBetaCONTRA = valueDynamicsDataStruct.meanBeta.Value.(ofcSides{idx1}).CONTRA;
 
-significantNeuronsProp1 = (sum(significantMask, 1) + sum(significantMask2, 1)) / (size(pval_Value.left.LOFC, 1) + size(pval_Value.right.ROFC, 1));
-plot(tbins, significantNeuronsProp1, 'LineWidth', 2, 'DisplayName', 'Ipsi');
+    significantNrnMaskIPSI = valueDynamicsDataStruct.significantNrnMask.Value.(ofcSides{idx1}).IPSI;
+    significantNrnMaskCONTRA = valueDynamicsDataStruct.significantNrnMask.Value.(ofcSides{idx1}).CONTRA;
+    
+    nrnSigInBothIPSI_CONTRA = significantNrnMaskIPSI & significantNrnMaskCONTRA;
 
-hold on;
+    % Define colors
+    colors = repmat([0 0 1], length(nrnSigInBothIPSI_CONTRA), 1);
+    colors(nrnSigInBothIPSI_CONTRA, :) = repmat([1 0 0], sum(nrnSigInBothIPSI_CONTRA), 1); % Set significant points to red
+    
+    subplot(1, 2, idx1)
+    hold on
+    scatter(meanBetaIPSI, meanBetaCONTRA, 50, colors, 'filled', 'HandleVisibility', 'off'); % Scatter plot
 
-% Plot 1: All significant neurons
-tbins = mean(timeBins, 1); 
-retData = GetSignificantTimeBinsFromPVal(pval_Value.right.LOFC, tbins);
-significantMask = retData.significantMask;
-retData2 = GetSignificantTimeBinsFromPVal(pval_Value.left.ROFC, tbins);
-significantMask2 = retData2.significantMask;
+    % Add invisible scatter plots for legend
+    scatter(NaN, NaN, 50, 'b', 'filled', 'DisplayName', 'Non-significant'); % Blue legend
+    scatter(NaN, NaN, 50, 'r', 'filled', 'DisplayName', 'Significant in both IPSI/CONTRA'); % Red legend
 
-significantNeuronsProp2 = (sum(significantMask, 1) + sum(significantMask2, 1)) / (size(pval_Value.left.ROFC, 1) + size(pval_Value.right.LOFC, 1));
-plot(tbins, significantNeuronsProp2, 'LineWidth', 2, 'DisplayName', 'Contra');
+    % Set labels and title
+    title(ofcSides{idx1});
+    xlabel('Beta value IPSI');
+    ylabel('Beta value CONTRA');
+    
+    % Show legend
+    legend('Location', 'best');
+    hold off
 
-% Add legend
-legend('Location', 'best');
+end
 
-% Axis labels and title
-xlabel('Time - from stim onset (ms)');
-ylabel('Proportion of significant neurons');
-title('Ipsi/Contra value dynamics');
 
-% Perform Chi-squared test
-chiTestData.prop1 = significantNeuronsProp1;
-chiTestData.prop2 = significantNeuronsProp2;
-chiTestData.totCount1 = (size(pval_Value.left.LOFC, 1) + size(pval_Value.right.ROFC, 1));
-chiTestData.totCount2 = (size(pval_Value.left.ROFC, 1) + size(pval_Value.right.LOFC, 1));
 
-retData = PerformChiSquaredTest(chiTestData);
-
-% Overlay significance markers (e.g., small bars at the bottom)
-significantBins = retData.pvals < 0.05;
-bar(tbins, significantBins * 0.01, 'FaceColor', 'r', 'EdgeColor', 'none', 'FaceAlpha', 0.5, 'HandleVisibility', 'off');
-
-hold off;
