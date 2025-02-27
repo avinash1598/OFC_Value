@@ -1,0 +1,97 @@
+function [retData] = GetAllValueCells()
+    dataBaseDIR = "C:\Users\Ranjan\Documents\MATLAB\OFC_Value\Data";
+    folders = dir(dataBaseDIR);
+    folders = folders([folders.isdir]); % Filter only directories (ignore files)
+    
+    % Initialize the list
+    ofcSides = {'LOFC', 'ROFC'};      % Cell array of character vectors
+       
+    for bIdx = 1:length(ofcSides)
+        ofcSide = ofcSides{bIdx};       % Extract string from cell
+
+        % TODO: create an array for factor as well
+        cumDataAllSession.pval.Value.(ofcSide) = [];
+        cumDataAllSession.betaCoeff.Value.(ofcSide) = [];
+    end
+    
+    % Iterate through each session file
+    for i = 1:length(folders) 
+        if startsWith(folders(i).name, '.')
+            continue;  % Skip the current iteration if file is a '._' file
+        end
+    
+        session = folders(i).name;
+        sessionFilePath = fullfile(dataBaseDIR, session, "pvalue_regrerssion_all_factors.mat");
+    
+        % TODO: Check if all the time bins are same
+        regressionData = load(sessionFilePath); 
+    
+        % for aIdx = 1:length(actionDirs)
+        for bIdx = 1:length(ofcSides)
+            ofcSide = ofcSides{bIdx};       % Extract string from cell
+            
+            disp(ofcSide)
+
+            % Value information
+            pval_ = regressionData.dataToSave.(ofcSide).pValTrialValue; % TODO: change
+            cumDataAllSession.pval.Value.(ofcSide) = [cumDataAllSession.pval.Value.(ofcSide); pval_]; % Append rows from this session
+
+            % Beta coefficient
+            betaCoeff_ = regressionData.dataToSave.(ofcSide).betaCoeffTrialValue; % TODO: change
+            cumDataAllSession.betaCoeff.Value.(ofcSide) = [cumDataAllSession.betaCoeff.Value.(ofcSide); betaCoeff_]; % Append rows from this session
+
+        end
+        % end
+    
+        % Assuming all the session have same bins - safe assumption
+        cumDataAllSession.timeBins = regressionData.dataToSave.LOFC.timeBins;
+    end
+    
+    % Get index of neuron which are significant only within 0 to 500 ms after
+    % stim onset
+    
+    valueDynamicsDataStruct = [];
+    
+    % Store value dynamics in a structure first
+    for idx1=1:length(ofcSides) % 
+        for idx2=1:length(brainSides)
+            
+            tbins = cumDataAllSession.timeBins;
+            pvalData = cumDataAllSession.pval.Value.(ofcSides{idx1}).(brainSides{idx2});
+            betaCoeffData = cumDataAllSession.betaCoeff.Value.(ofcSides{idx1}).(brainSides{idx2});
+            
+            % Get significant time bins
+            retData1 = GetSignificantTimeBinsFromPVal(pvalData, tbins); 
+            significantMask = retData1.significantMask;
+            
+            % Get significant neuron IDx (significant timebin within 0 - 500 ms interval)
+            retData2 = GetSignificantNeuronIDx(significantMask, tbins);
+            significantNrnIDx = retData2.sigNrnIDx;
+            
+            % Get first significant timebin post stim onset
+            % And get this only for significant neuron
+            fristSigBinPostStim = GetFirstSigPostStim(significantMask(significantNrnIDx, :), tbins);
+            
+            % value dynamics
+            % Get significant proportion at each time bin for significant neuron only
+            significantNeuronsProp = sum(significantMask(significantNrnIDx, :), 1) / size(pvalData, 1);
+            % significantNeuronsProp = sum(significantMask, 1) / size(data, 1);
+    
+            % beta dynamics
+            betaDynamics = mean(abs(betaCoeffData(significantNrnIDx, :)), 1);
+    
+            % Mean beta value (0-500 ms) of all neurons (not just significant)
+            tIDx = (tbins > 0) & (tbins <= 500);
+            meanBeta = mean(betaCoeffData(:,tIDx), 2);
+    
+            valueDynamicsDataStruct.significantNeuronsProp.Value.(ofcSides{idx1}).(brainSides{idx2}) = significantNeuronsProp;
+            valueDynamicsDataStruct.betaDynamics.Value.(ofcSides{idx1}).(brainSides{idx2}) = betaDynamics;
+            valueDynamicsDataStruct.fristSigBinPostStim.Value.(ofcSides{idx1}).(brainSides{idx2}) = fristSigBinPostStim;
+            valueDynamicsDataStruct.meanBeta.Value.(ofcSides{idx1}).(brainSides{idx2}) = meanBeta;
+            valueDynamicsDataStruct.significantNrnMask.Value.(ofcSides{idx1}).(brainSides{idx2}) = significantNrnIDx;
+            
+        end
+    
+    end
+
+end
